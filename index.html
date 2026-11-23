@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Focus — Pomodoro Timer & Study Rhythm</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            alabaster: '#FAF8F6',
+            ivory: '#F5F1EC',
+            hairline: '#EBE5DF',
+            plum: {
+              950: '#1B1422',
+              900: '#241B2F',
+              800: '#332642',
+              700: '#4B385E',
+              100: '#F2EDF5',
+            },
+            terracotta: {
+              500: '#C97A6E',
+              400: '#DC8E7D',
+              300: '#EAA896',
+              100: '#FBECE7',
+              50: '#FDF5F2',
+            },
+            sage: {
+              600: '#4E7D63',
+              100: '#EBF3EE',
+            },
+            ink: {
+              primary: '#1F1824',
+              secondary: '#756D7A',
+              muted: '#9E96A4',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    :root {
+      --ease-apple-spring: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-apple-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #FAF8F6;
+      color: #1F1824;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Apple-style tactile button micro-interactions */
+    .apple-btn {
+      transition: transform 0.28s var(--ease-apple-spring),
+                  background-color 0.25s var(--ease-smooth),
+                  box-shadow 0.28s var(--ease-apple-spring),
+                  opacity 0.2s ease;
+      will-change: transform;
+    }
+    .apple-btn:hover {
+      transform: translateY(-1px);
+    }
+    .apple-btn:active {
+      transform: scale(0.955);
+    }
+
+    /* Card subtle elevation & spring hover */
+    .bento-card {
+      background: #FFFFFF;
+      border: 1px solid #EBE5DF;
+      border-radius: 26px;
+      box-shadow: 0 2px 14px rgba(31, 24, 36, 0.025);
+      transition: transform 0.4s var(--ease-apple-spring),
+                  box-shadow 0.4s var(--ease-apple-spring),
+                  border-color 0.3s ease;
+    }
+    .bento-card:hover {
+      box-shadow: 0 10px 30px rgba(31, 24, 36, 0.05);
+      border-color: #E2D9D0;
+    }
+
+    /* Signature Dusk-to-Sunrise Hero Gradient Card */
+    .hero-dusk-card {
+      background:
+        radial-gradient(circle at 86% 88%, rgba(244, 181, 148, 0.85) 0%, rgba(215, 134, 118, 0.48) 28%, rgba(114, 68, 96, 0.15) 58%, transparent 78%),
+        radial-gradient(circle at 18% 15%, rgba(69, 49, 92, 0.85) 0%, transparent 60%),
+        linear-gradient(125deg, #23192D 0%, #332442 42%, #593954 74%, #9B5C68 100%);
+      border-radius: 30px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 20px 48px -14px rgba(36, 27, 47, 0.28),
+                  0 4px 16px rgba(36, 27, 47, 0.08);
+      transition: box-shadow 0.6s var(--ease-apple-spring), transform 0.5s var(--ease-apple-spring);
+    }
+
+    /* Ambient breathing glow when timer is actively counting down */
+    .hero-dusk-card.is-running {
+      animation: ambientBreathe 4.5s ease-in-out infinite;
+    }
+
+    @keyframes ambientBreathe {
+      0%, 100% {
+        box-shadow: 0 20px 48px -14px rgba(36, 27, 47, 0.28),
+                    0 0 0 0 rgba(234, 168, 150, 0);
+      }
+      50% {
+        box-shadow: 0 24px 56px -12px rgba(155, 92, 104, 0.38),
+                    0 0 0 4px rgba(234, 168, 150, 0.16);
+      }
+    }
+
+    /* Sliding Segmented Control Pill */
+    .segmented-pill {
+      transition: transform 0.42s var(--ease-apple-spring), width 0.42s var(--ease-apple-spring);
+      will-change: transform, width;
+    }
+
+    /* SVG Timer Ring Smooth Progress */
+    .timer-ring-progress {
+      transition: stroke-dashoffset 0.85s cubic-bezier(0.25, 1, 0.5, 1), stroke 0.4s ease;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* Floating Glass Bottom Dock */
+    .glass-dock {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(22px) saturate(180%);
+      -webkit-backdrop-filter: blur(22px) saturate(180%);
+      border: 1px solid rgba(235, 229, 223, 0.9);
+      box-shadow: 0 14px 38px -8px rgba(31, 24, 36, 0.14),
+                  0 2px 8px rgba(31, 24, 36, 0.04);
+    }
+
+    .dock-active-pill {
+      transition: transform 0.45s var(--ease-apple-spring), width 0.45s var(--ease-apple-spring);
+      will-change: transform, width;
+    }
+
+    /* View Entrance Animation */
+    .view-section {
+      animation: viewSpringIn 0.48s var(--ease-apple-spring) forwards;
+    }
+
+    @keyframes viewSpringIn {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.992);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Modal Spring Animation */
+    .modal-backdrop {
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.32s var(--ease-smooth);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    .modal-backdrop.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-sheet {
+      transform: translateY(20px) scale(0.96);
+      opacity: 0;
+      transition: transform 0.42s var(--ease-apple-spring), opacity 0.3s ease;
+    }
+    .modal-backdrop.open .modal-sheet {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    /* Calendar Day Cell & Streak Connectors */
+    .cal-day-cell {
+      transition: transform 0.28s var(--ease-apple-spring),
+                  background-color 0.25s ease,
+                  box-shadow 0.25s ease;
+    }
+    .cal-day-cell:hover {
+      transform: scale(1.06);
+    }
+    .cal-day-cell:active {
+      transform: scale(0.94);
+    }
+
+    @keyframes todayPulse {
+      0%, 100% { box-shadow: 0 0 0 2px #241B2F, 0 0 0 4px rgba(201, 122, 110, 0.25); }
+      50% { box-shadow: 0 0 0 2px #241B2F, 0 0 0 7px rgba(201, 122, 110, 0.08); }
+    }
+    .today-ring {
+      animation: todayPulse 3s ease-in-out infinite;
+    }
+
+    /* Donut Chart Segment Hover */
+    .donut-segment {
+      transition: stroke-width 0.3s var(--ease-apple-spring),
+                  stroke-dasharray 0.75s var(--ease-apple-spring),
+                  stroke-dashoffset 0.75s var(--ease-apple-spring),
+                  opacity 0.25s ease;
+      cursor: pointer;
+    }
+    .donut-segment:hover {
+      stroke-width: 24;
+    }
+
+    /* Toast Notification Spring */
+    .toast-pill {
+      transform: translateY(-20px) scale(0.94);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.42s var(--ease-apple-bounce), opacity 0.28s ease;
+    }
+    .toast-pill.show {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    /* Custom subtle range input styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: #EFEAE4;
+      height: 6px;
+      border-radius: 999px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #241B2F;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(36, 27, 47, 0.28);
+      transition: transform 0.2s var(--ease-apple-spring);
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+  </style>
+</head>
+<body class="min-h-screen pb-32 selection:bg-terracotta-300/40 selection:text-plum-950">
+
+  <!-- Floating Toast Feedback (Replaces alert() cleanly) -->
+  <div id="toastContainer" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none px-4 w-full max-w-md flex justify-center">
+    <div id="toastPill" class="toast-pill bg-plum-900 text-white px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2.5 text-sm font-medium border border-white/10">
+      <span id="toastIcon" class="w-5 h-5 rounded-full bg-terracotta-400/25 text-terracotta-300 flex items-center justify-center text-xs">✦</span>
+      <span id="toastMessage">Session logged to your streak</span>
+    </div>
+  </div>
+
+  <!-- Top Navigation Header -->
+  <header class="max-w-5xl mx-auto px-4 sm:px-6 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3">
+    <!-- Left Brand Greeting -->
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-full bg-white border border-hairline flex items-center justify-center shadow-xs">
+        <svg class="w-4 h-4 text-plum-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4" />
+        </svg>
+      </div>
+      <span class="text-sm text-ink-secondary tracking-tight">
+        Welcome to <strong class="font-semibold text-ink-primary">Focus</strong>
+      </span>
+    </div>
+
+    <!-- Right Controls: Month Switcher, Streak Pill, Sound Toggle, + Log Session -->
+    <div class="flex items-center gap-2 sm:gap-2.5">
+      <!-- Month Switcher Pill -->
+      <div class="bg-white border border-hairline rounded-full px-2 py-1 flex items-center gap-1 shadow-2xs">
+        <button id="prevMonthBtn" aria-label="Previous month" class="apple-btn w-7 h-7 rounded-full flex items-center justify-center text-ink-secondary hover:bg-ivory hover:text-ink-primary">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span id="headerMonthLabel" class="text-xs sm:text-sm font-semibold text-ink-primary px-2 min-w-[84px] text-center tabular-nums">Nov 2026</span>
+        <button id="nextMonthBtn" aria-label="Next month" class="apple-btn w-7 h-7 rounded-full flex items-center justify-center text-ink-secondary hover:bg-ivory hover:text-ink-primary">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+
+      <!-- Live Streak Badge -->
+      <button onclick="switchTab('calendar')" title="View Streak Calendar" class="apple-btn hidden sm:flex items-center gap-1.5 bg-white border border-hairline rounded-full px-3.5 py-1.5 text-xs font-semibold text-ink-primary shadow-2xs hover:bg-terracotta-50">
+        <svg class="w-3.5 h-3.5 text-terracotta-500" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.9 2.3c.3-.3.8-.1.8.4-.1 2.2.9 4.1 2.5 5.6 1.7 1.6 2.8 3.8 2.8 6.2 0 4.4-3.6 8-8 8s-8-3.6-8-8c0-2.6 1.2-5.1 3.3-6.7.4-.3.9 0 .8.5-.2 1.1.2 2.2 1 2.9.2.2.5 0 .5-.3-.2-3.2 1.3-6.4 4.3-8.6z"/>
+        </svg>
+        <span id="headerStreakText" class="tabular-nums">0d streak</span>
+      </button>
+
+      <!-- Two-step Reset Data Control -->
+      <button id="headerResetBtn" onclick="handleHeaderResetClick()" title="Reset all progress to 0" class="apple-btn hidden md:flex items-center gap-1.5 bg-white border border-hairline rounded-full px-3.5 py-1.5 text-xs font-medium text-ink-secondary hover:text-ink-primary hover:bg-ivory shadow-2xs">
+        <span>Reset data</span>
+      </button>
+
+      <!-- Sound Toggle Button -->
+      <button id="soundToggleBtn" aria-label="Toggle chime sound" title="Toggle harmonic chime" class="apple-btn w-9 h-9 rounded-full bg-white border border-hairline flex items-center justify-center text-ink-primary hover:bg-ivory shadow-2xs">
+        <svg id="soundOnIcon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+        </svg>
+        <svg id="soundOffIcon" class="w-4 h-4 hidden text-ink-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <line x1="23" y1="9" x2="17" y2="15"></line>
+          <line x1="17" y1="9" x2="23" y2="15"></line>
+        </svg>
+      </button>
+
+      <!-- Primary Action Pill: + Log session -->
+      <button onclick="openLogModal()" class="apple-btn bg-plum-900 hover:bg-plum-800 text-white rounded-full px-4 py-2 text-xs sm:text-sm font-medium flex items-center gap-1.5 shadow-sm">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Log session</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+
+    <!-- ========================================================= -->
+    <!-- VIEW 1: TIMER & DASHBOARD OVERVIEW                        -->
+    <!-- ========================================================= -->
+    <section id="view-timer" class="view-section space-y-6">
+
+      <!-- Editorial Headline & Active Subject Selector -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-terracotta-500 mb-1.5">
+            YOUR TIME, YOUR RHYTHM
+          </p>
+          <h1 class="font-display text-3xl sm:text-4xl font-bold tracking-tight text-ink-primary leading-[1.12]">
+            Your focus, in rhythm.
+          </h1>
+          <p id="editorialSubtitle" class="text-sm text-ink-secondary mt-1.5">
+            A clearer picture of November 2026. Every deep session counts.
+          </p>
+        </div>
+
+        <!-- Subject Pill Selector -->
+        <div class="flex items-center gap-2 flex-wrap">
+          <div class="relative">
+            <button id="subjectDropdownBtn" onclick="toggleSubjectMenu()" class="apple-btn bg-white border border-hairline hover:border-ink-muted/40 rounded-full px-4 py-2 text-xs sm:text-sm font-medium text-ink-primary flex items-center gap-2.5 shadow-2xs">
+              <span id="activeSubjectDot" class="w-2.5 h-2.5 rounded-full" style="background-color: #769A82"></span>
+              <span id="activeSubjectLabel">Mathematics</span>
+              <svg class="w-3.5 h-3.5 text-ink-secondary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="subjectDropdownMenu" class="hidden absolute right-0 mt-2 w-56 bg-white border border-hairline rounded-2xl shadow-xl p-1.5 z-30 origin-top-right transition-all">
+              <div id="subjectOptionsList" class="space-y-0.5"></div>
+              <div class="border-t border-hairline mt-1.5 pt-1.5">
+                <button onclick="openNewSubjectPrompt()" class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium text-terracotta-500 hover:bg-terracotta-50 flex items-center gap-2 transition-colors">
+                  <span>+</span> <span>Add new subject</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Signature Dusk-to-Sunrise Hero Timer Card -->
+      <div id="heroTimerCard" class="hero-dusk-card p-6 sm:p-8 md:p-9 text-white">
+        <!-- Decorative Concentric Arcs & Subtle Sparkles (Inspired by Reference Aesthetic) -->
+        <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 900 420" fill="none" preserveAspectRatio="xMidYMid slice">
+          <circle cx="770" cy="390" r="190" stroke="rgba(255,255,255,0.08)" stroke-width="1.2" />
+          <circle cx="770" cy="390" r="295" stroke="rgba(255,255,255,0.06)" stroke-width="1.2" />
+          <circle cx="770" cy="390" r="410" stroke="rgba(255,255,255,0.04)" stroke-width="1.2" />
+          <!-- Delicate 4-point geometric stars -->
+          <path d="M815 72 L818 82 L828 85 L818 88 L815 98 L812 88 L802 85 L812 82 Z" stroke="rgba(255,255,255,0.42)" stroke-width="1.1" fill="none" />
+          <path d="M685 152 L687 158 L693 160 L687 162 L685 168 L683 162 L677 160 L683 158 Z" stroke="rgba(255,255,255,0.32)" stroke-width="1" fill="none" />
+        </svg>
+
+        <div class="relative z-10 flex flex-col justify-between gap-7">
+          <!-- Top Row: Mode Status & Sliding Segmented Control -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <span id="timerStatusDot" class="w-2 h-2 rounded-full bg-terracotta-300"></span>
+              <span id="timerEyebrowLabel" class="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/80">
+                POMODORO FOCUS • READY
+              </span>
+            </div>
+
+            <!-- Apple-Style Sliding Segmented Control -->
+            <div class="flex items-center gap-2 self-start sm:self-auto">
+              <div id="modeSegmentedControl" class="relative bg-black/25 backdrop-blur-md border border-white/12 rounded-full p-1 flex items-center">
+                <div id="modeActivePill" class="segmented-pill absolute top-1 bottom-1 left-1 bg-white rounded-full shadow-sm"></div>
+                <button data-mode="focus" onclick="setTimerMode('focus')" class="mode-tab relative z-10 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors text-plum-950">
+                  Focus
+                </button>
+                <button data-mode="short" onclick="setTimerMode('short')" class="mode-tab relative z-10 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors text-white/80 hover:text-white">
+                  Short Break
+                </button>
+                <button data-mode="long" onclick="setTimerMode('long')" class="mode-tab relative z-10 px-3.5 py-1.5 text-xs font-semibold rounded-full transition-colors text-white/80 hover:text-white">
+                  Long Break
+                </button>
+              </div>
+
+              <!-- Quick Timer Duration Settings -->
+              <button onclick="switchTab('insights')" title="Customize timer lengths" class="apple-btn w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white/85">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"></circle>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Center Stage: Radial Ring + Large Tabular Countdown + Action Controls -->
+          <div class="flex flex-col md:flex-row items-center justify-between gap-6 py-1">
+            <div class="flex items-center gap-6 sm:gap-8">
+              <!-- Smooth SVG Circular Progress Arc -->
+              <div class="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center shrink-0">
+                <svg class="w-full h-full" viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r="60" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="6" />
+                  <circle id="timerProgressCircle" class="timer-ring-progress" cx="70" cy="70" r="60" fill="none" stroke="#F4B594" stroke-width="6" stroke-linecap="round" stroke-dasharray="376.99" stroke-dashoffset="0" />
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                  <span id="ringPercentText" class="text-xs font-semibold text-white/90 tabular-nums">100%</span>
+                  <span id="ringModeMini" class="text-[10px] uppercase tracking-wider text-white/60 mt-0.5">25 min</span>
+                </div>
+              </div>
+
+              <!-- Main Countdown Typography -->
+              <div>
+                <div id="timerDisplay" class="font-display text-6xl sm:text-7xl font-bold tracking-tight text-white tabular-nums leading-none">
+                  25:00
+                </div>
+                <p id="timerCaption" class="text-sm text-white/75 mt-2.5 flex items-center gap-2">
+                  <span>Studying</span>
+                  <span class="px-2 py-0.5 rounded-full bg-white/12 text-white text-xs font-medium" id="heroSubjectBadge">Mathematics</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Tactile Timer Controls -->
+            <div class="flex items-center gap-3 w-full md:w-auto justify-center md:justify-end">
+              <button id="primaryTimerBtn" onclick="toggleTimer()" class="apple-btn bg-white text-plum-950 hover:bg-ivory font-semibold text-sm px-7 py-3.5 rounded-full shadow-lg flex items-center gap-2.5 min-w-[152px] justify-center">
+                <svg id="playIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                <svg id="pauseIcon" class="w-4 h-4 fill-current hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                <span id="primaryTimerBtnText">Start Focus</span>
+              </button>
+
+              <button onclick="resetTimer()" title="Reset timer" aria-label="Reset timer" class="apple-btn w-12 h-12 rounded-full bg-white/12 hover:bg-white/20 border border-white/15 flex items-center justify-center text-white">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+              </button>
+
+              <button id="completeEarlyBtn" onclick="completeSessionEarly()" title="Complete & log session now" class="apple-btn px-4 h-12 rounded-full bg-white/12 hover:bg-white/20 border border-white/15 flex items-center gap-1.5 text-xs font-medium text-white/95">
+                <svg class="w-3.5 h-3.5 text-terracotta-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                <span class="hidden sm:inline">Finish</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Bottom Frosted Translucent Metric Pills (Matching Reference Card Style) -->
+          <div class="flex flex-wrap items-center gap-3 pt-1">
+            <div class="bg-white/10 backdrop-blur-md border border-white/14 rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
+              <svg class="w-4 h-4 text-terracotta-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span id="heroTodayPill" class="text-xs sm:text-sm font-medium text-white tabular-nums">
+                0m studied today
+              </span>
+            </div>
+
+            <div class="bg-white/10 backdrop-blur-md border border-white/14 rounded-2xl px-4 py-2.5 flex items-center gap-2.5">
+              <span id="heroSessionsPill" class="text-xs sm:text-sm font-medium text-white/90 tabular-nums">
+                0 focus sessions logged
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3-Card Bento Metric Strip (Directly Inspired by Reference Layout) -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Card 1: Current Streak -->
+        <div onclick="switchTab('calendar')" class="bento-card p-5 sm:p-6 cursor-pointer">
+          <div class="flex items-center gap-2.5 mb-3">
+            <div class="w-7 h-7 rounded-full bg-terracotta-100 text-terracotta-500 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12.9 2.3c.3-.3.8-.1.8.4-.1 2.2.9 4.1 2.5 5.6 1.7 1.6 2.8 3.8 2.8 6.2 0 4.4-3.6 8-8 8s-8-3.6-8-8c0-2.6 1.2-5.1 3.3-6.7.4-.3.9 0 .8.5-.2 1.1.2 2.2 1 2.9.2.2.5 0 .5-.3-.2-3.2 1.3-6.4 4.3-8.6z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-ink-secondary">Active streak</span>
+          </div>
+          <div id="metricStreakValue" class="font-display text-2xl sm:text-3xl font-bold text-sage-600 tabular-nums">
+            0 Days
+          </div>
+          <p id="metricStreakSub" class="text-xs text-ink-muted mt-1.5 tabular-nums">
+            Ready to start
+          </p>
+        </div>
+
+        <!-- Card 2: Studied Today + Daily Goal Progress -->
+        <div class="bento-card p-5 sm:p-6">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-full bg-terracotta-50 text-terracotta-500 flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4"/>
+                </svg>
+              </div>
+              <span class="text-xs font-medium text-ink-secondary">Studied today</span>
+            </div>
+            <span id="metricGoalPercent" class="text-[11px] font-semibold text-terracotta-500 tabular-nums">0%</span>
+          </div>
+          <div id="metricTodayValue" class="font-display text-2xl sm:text-3xl font-bold text-ink-primary tabular-nums">
+            0m
+          </div>
+          <div class="mt-2.5">
+            <div class="w-full h-1.5 bg-ivory rounded-full overflow-hidden">
+              <div id="metricGoalBar" class="h-full bg-gradient-to-r from-plum-800 to-terracotta-500 rounded-full transition-all duration-700" style="width: 0%"></div>
+            </div>
+            <p id="metricGoalSub" class="text-xs text-ink-muted mt-1.5 tabular-nums">
+              Of 2h 00m daily goal
+            </p>
+          </div>
+        </div>
+
+        <!-- Card 3: Selected Month Total -->
+        <div class="bento-card p-5 sm:p-6">
+          <div class="flex items-center gap-2.5 mb-3">
+            <div class="w-7 h-7 rounded-full bg-plum-100 text-plum-800 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="4"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <span id="metricMonthTitle" class="text-xs font-medium text-ink-secondary">November total</span>
+          </div>
+          <div id="metricMonthValue" class="font-display text-2xl sm:text-3xl font-bold text-ink-primary tabular-nums">
+            0h 0m
+          </div>
+          <p id="metricMonthSub" class="text-xs text-ink-muted mt-1.5 tabular-nums">
+            0 active study days
+          </p>
+        </div>
+      </div>
+
+      <!-- Lower Split Bento: Streak Calendar + Subject Breakdown Donut -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- Left 7 Columns: Interactive Study Streak Calendar -->
+        <div class="bento-card p-6 sm:p-7 lg:col-span-7 flex flex-col justify-between">
+          <div>
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-5">
+              <div>
+                <h2 class="font-display text-lg font-bold text-ink-primary">Study streak calendar</h2>
+                <p class="text-xs text-ink-secondary mt-0.5">Tap any day to inspect your focus sessions</p>
+              </div>
+              <!-- Heatmap Intensity Legend -->
+              <div class="flex items-center gap-1.5 text-[11px] text-ink-muted">
+                <span>0m</span>
+                <span class="w-3 h-3 rounded-sm bg-ivory border border-hairline"></span>
+                <span class="w-3 h-3 rounded-sm bg-[#EBF3EE]"></span>
+                <span class="w-3 h-3 rounded-sm bg-[#769A82]/35"></span>
+                <span class="w-3 h-3 rounded-sm bg-[#D87A68]/45"></span>
+                <span class="w-3 h-3 rounded-sm bg-[#C47564]"></span>
+                <span>2h+</span>
+              </div>
+            </div>
+
+            <!-- Day of Week Headers -->
+            <div class="grid grid-cols-7 gap-1.5 text-center mb-2">
+              <span class="text-[11px] font-semibold text-ink-muted">Sun</span>
+              <span class="text-[11px] font-semibold text-ink-muted">Mon</span>
+              <span class="text-[11px] font-semibold text-ink-muted">Tue</span>
+              <span class="text-[11px] font-semibold text-ink-muted">Wed</span>
+              <span class="text-[11px] font-semibold text-ink-muted">Thu</span>
+              <span class="text-[11px] font-semibold text-ink-muted">Fri</span>
+              <span class="text-[11px] font-semibold text-ink-muted">Sat</span>
+            </div>
+
+            <!-- Interactive Calendar Grid -->
+            <div id="dashboardCalendarGrid" class="grid grid-cols-7 gap-1.5 sm:gap-2">
+              <!-- Populated dynamically by JS -->
+            </div>
+          </div>
+
+          <!-- Selected Day Detail Drawer -->
+          <div id="dayInspectorCard" class="mt-5 pt-4 border-t border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <span id="inspectorDateTitle" class="text-sm font-semibold text-ink-primary">Sunday, Nov 22</span>
+                <span id="inspectorBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-ivory text-ink-muted tabular-nums">0m</span>
+              </div>
+              <p id="inspectorSessionsSummary" class="text-xs text-ink-secondary mt-1">
+                No sessions logged yet
+              </p>
+            </div>
+            <button onclick="openLogModalForSelectedDate()" class="apple-btn self-start sm:self-center text-xs font-semibold text-plum-900 bg-ivory hover:bg-hairline/70 px-3.5 py-2 rounded-full transition-colors shrink-0">
+              + Add to day
+            </button>
+          </div>
+        </div>
+
+        <!-- Right 5 Columns: Where Your Time Went (Donut Breakdown) -->
+        <div class="bento-card p-6 sm:p-7 lg:col-span-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-5">
+              <h2 class="font-display text-lg font-bold text-ink-primary">Where your time went</h2>
+              <span id="subjectCountPill" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-terracotta-50 text-terracotta-500">
+                5 subjects
+              </span>
+            </div>
+
+            <!-- Donut Chart + Center Total -->
+            <div class="flex flex-col items-center my-2">
+              <div class="relative w-44 h-44 flex items-center justify-center">
+                <svg id="subjectDonutSvg" class="w-full h-full -rotate-90" viewBox="0 0 160 160">
+                  <!-- Segments rendered dynamically -->
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                  <span id="donutCenterValue" class="font-display text-2xl font-bold text-ink-primary tabular-nums">0m</span>
+                  <span id="donutCenterSub" class="text-[11px] text-ink-muted">No time logged</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Itemized Subject Legend List -->
+            <div id="subjectBreakdownList" class="space-y-3 mt-4">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 2: EXPANDED STREAK CALENDAR & TIMELINE               -->
+    <!-- ========================================================= -->
+    <section id="view-calendar" class="view-section hidden space-y-6">
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-1">
+        <div>
+          <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-terracotta-500 mb-1.5">
+            CONSISTENCY & MOMENTUM
+          </p>
+          <h1 class="font-display text-3xl font-bold tracking-tight text-ink-primary">
+            Study streak & history.
+          </h1>
+          <p class="text-sm text-ink-secondary mt-1">
+            Every uninterrupted day strengthens your deep work habit.
+          </p>
+        </div>
+        <button onclick="openLogModalForSelectedDate()" class="apple-btn self-start sm:self-auto bg-plum-900 text-white text-xs sm:text-sm font-medium px-4 py-2.5 rounded-full shadow-xs">
+          + Log session on selected day
+        </button>
+      </div>
+
+      <!-- Streak Milestones Banner -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div class="bento-card p-4">
+          <span class="text-[11px] font-medium text-ink-muted">Current Streak</span>
+          <div id="calViewStreak" class="font-display text-2xl font-bold text-sage-600 mt-1 tabular-nums">0 Days</div>
+        </div>
+        <div class="bento-card p-4">
+          <span class="text-[11px] font-medium text-ink-muted">Longest Streak</span>
+          <div id="calViewBest" class="font-display text-2xl font-bold text-ink-primary mt-1 tabular-nums">0 Days</div>
+        </div>
+        <div class="bento-card p-4">
+          <span class="text-[11px] font-medium text-ink-muted">Active Days (Month)</span>
+          <div id="calViewActiveDays" class="font-display text-2xl font-bold text-ink-primary mt-1 tabular-nums">0 Days</div>
+        </div>
+        <div class="bento-card p-4">
+          <span class="text-[11px] font-medium text-ink-muted">Daily Average</span>
+          <div id="calViewDailyAvg" class="font-display text-2xl font-bold text-terracotta-500 mt-1 tabular-nums">0m</div>
+        </div>
+      </div>
+
+      <!-- Expanded Calendar + Day Timeline Split -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div class="bento-card p-6 sm:p-7 lg:col-span-7">
+          <div class="flex items-center justify-between mb-5">
+            <h2 id="expandedCalMonthTitle" class="font-display text-lg font-bold text-ink-primary">November 2026</h2>
+            <div class="flex items-center gap-1.5">
+              <button onclick="changeMonth(-1)" class="apple-btn w-8 h-8 rounded-full border border-hairline flex items-center justify-center text-ink-secondary hover:bg-ivory">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+              </button>
+              <button onclick="jumpToToday()" class="apple-btn px-3 py-1 rounded-full border border-hairline text-xs font-semibold text-ink-primary hover:bg-ivory">
+                Today
+              </button>
+              <button onclick="changeMonth(1)" class="apple-btn w-8 h-8 rounded-full border border-hairline flex items-center justify-center text-ink-secondary hover:bg-ivory">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-7 gap-2 text-center mb-2.5">
+            <span class="text-xs font-semibold text-ink-muted">Sun</span>
+            <span class="text-xs font-semibold text-ink-muted">Mon</span>
+            <span class="text-xs font-semibold text-ink-muted">Tue</span>
+            <span class="text-xs font-semibold text-ink-muted">Wed</span>
+            <span class="text-xs font-semibold text-ink-muted">Thu</span>
+            <span class="text-xs font-semibold text-ink-muted">Fri</span>
+            <span class="text-xs font-semibold text-ink-muted">Sat</span>
+          </div>
+
+          <div id="expandedCalendarGrid" class="grid grid-cols-7 gap-2">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+
+        <!-- Selected Day Detailed Session Timeline -->
+        <div class="bento-card p-6 sm:p-7 lg:col-span-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between border-b border-hairline pb-4 mb-4">
+              <div>
+                <span class="text-[11px] font-semibold uppercase tracking-wider text-terracotta-500">DAY LOG</span>
+                <h3 id="timelineDateHeading" class="font-display text-lg font-bold text-ink-primary mt-0.5">Sunday, Nov 22, 2026</h3>
+              </div>
+              <span id="timelineTotalBadge" class="px-3 py-1 rounded-full bg-plum-900 text-white text-xs font-semibold tabular-nums">0m</span>
+            </div>
+
+            <div id="timelineSessionsList" class="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <button onclick="openLogModalForSelectedDate()" class="apple-btn w-full mt-5 py-3 rounded-2xl bg-ivory hover:bg-hairline/80 text-xs font-semibold text-ink-primary transition-colors">
+            + Log another study block for this date
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- VIEW 3: INSIGHTS, WEEKLY RHYTHM & SETTINGS                -->
+    <!-- ========================================================= -->
+    <section id="view-insights" class="view-section hidden space-y-6">
+      <div class="pt-1">
+        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-terracotta-500 mb-1.5">
+          ANALYTICS & PREFERENCES
+        </p>
+        <h1 class="font-display text-3xl font-bold tracking-tight text-ink-primary">
+          Weekly rhythm & settings.
+        </h1>
+        <p class="text-sm text-ink-secondary mt-1">
+          Fine-tune your Pomodoro intervals, daily goal, and review recent logs.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <!-- Weekly Study Bar Chart (7 columns) -->
+        <div class="bento-card p-6 sm:p-7 lg:col-span-7 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-6">
+              <div>
+                <h2 class="font-display text-lg font-bold text-ink-primary">Last 7 days focus</h2>
+                <p class="text-xs text-ink-secondary mt-0.5">Nov 16 – Nov 22, 2026 vs. daily goal</p>
+              </div>
+              <span id="weeklyTotalBadge" class="text-xs font-semibold px-3 py-1 rounded-full bg-sage-100 text-sage-600 tabular-nums">
+                0h 0m total
+              </span>
+            </div>
+
+            <!-- Bar Chart Container -->
+            <div id="weeklyBarChart" class="grid grid-cols-7 gap-3 items-end h-48 pt-6 pb-2 px-1">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-hairline flex items-center justify-between text-xs text-ink-secondary">
+            <span>Dashed line indicates your daily study target</span>
+            <span id="weeklyGoalIndicator" class="font-semibold text-ink-primary tabular-nums">Goal: 2h 00m</span>
+          </div>
+        </div>
+
+        <!-- Timer & Daily Goal Customization Card (5 columns) -->
+        <div class="bento-card p-6 sm:p-7 lg:col-span-5 space-y-5">
+          <h2 class="font-display text-lg font-bold text-ink-primary">Rhythm preferences</h2>
+
+          <!-- Daily Goal Slider -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-2">
+              <span class="text-ink-secondary">Daily Study Goal</span>
+              <span id="settingGoalLabel" class="font-bold text-ink-primary tabular-nums">2h 00m (120m)</span>
+            </div>
+            <input id="dailyGoalSlider" type="range" min="30" max="480" step="15" value="120" oninput="updateDailyGoal(this.value)" class="w-full" />
+          </div>
+
+          <!-- Pomodoro Intervals -->
+          <div class="grid grid-cols-3 gap-2.5 pt-1">
+            <div class="bg-ivory/70 border border-hairline rounded-2xl p-3">
+              <label class="block text-[11px] font-medium text-ink-secondary mb-1">Focus (min)</label>
+              <input id="focusDurationInput" type="number" min="1" max="120" value="25" onchange="updateDurations()" class="w-full bg-white border border-hairline rounded-xl px-2.5 py-1.5 text-sm font-bold text-ink-primary tabular-nums focus:outline-none focus:border-plum-800" />
+            </div>
+            <div class="bg-ivory/70 border border-hairline rounded-2xl p-3">
+              <label class="block text-[11px] font-medium text-ink-secondary mb-1">Short (min)</label>
+              <input id="shortDurationInput" type="number" min="1" max="45" value="5" onchange="updateDurations()" class="w-full bg-white border border-hairline rounded-xl px-2.5 py-1.5 text-sm font-bold text-ink-primary tabular-nums focus:outline-none focus:border-plum-800" />
+            </div>
+            <div class="bg-ivory/70 border border-hairline rounded-2xl p-3">
+              <label class="block text-[11px] font-medium text-ink-secondary mb-1">Long (min)</label>
+              <input id="longDurationInput" type="number" min="1" max="60" value="15" onchange="updateDurations()" class="w-full bg-white border border-hairline rounded-xl px-2.5 py-1.5 text-sm font-bold text-ink-primary tabular-nums focus:outline-none focus:border-plum-800" />
+            </div>
+          </div>
+
+          <!-- Clean Slate Reset (Inline confirmation, no confirm() dialog) -->
+          <div class="pt-3 border-t border-hairline flex items-center justify-between gap-2">
+            <span class="text-xs text-ink-muted">Storage & progress</span>
+            <div id="resetConfirmGroup">
+              <button onclick="showResetConfirm()" class="apple-btn text-xs font-semibold text-ink-secondary hover:text-ink-primary px-3 py-1.5 rounded-full bg-ivory">
+                Reset data
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Session Ledger -->
+      <div class="bento-card p-6 sm:p-7">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="font-display text-lg font-bold text-ink-primary">Recent study sessions</h2>
+            <p class="text-xs text-ink-secondary mt-0.5">Your latest logged Pomodoros and manual study blocks</p>
+          </div>
+          <span id="totalLogsCountBadge" class="text-xs font-semibold text-ink-secondary bg-ivory px-3 py-1 rounded-full tabular-nums">
+            0 sessions
+          </span>
+        </div>
+
+        <div id="recentSessionsTable" class="divide-y divide-hairline">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- FLOATING FROSTED GLASS BOTTOM DOCK (APPLE STYLE)          -->
+  <!-- ========================================================= -->
+  <nav aria-label="Primary navigation" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-40">
+    <div id="bottomDock" class="glass-dock rounded-[26px] p-1.5 flex items-center relative">
+      <!-- Sliding Dark Plum Active Pill -->
+      <div id="dockActiveIndicator" class="dock-active-pill absolute top-1.5 bottom-1.5 left-1.5 bg-plum-900 rounded-[20px] shadow-md"></div>
+
+      <button data-tab="timer" onclick="switchTab('timer')" class="dock-tab relative z-10 flex flex-col items-center justify-center w-24 sm:w-28 py-2 rounded-[20px] transition-colors text-white">
+        <svg class="w-4 h-4 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/>
+        </svg>
+        <span class="text-[11px] font-semibold tracking-tight">Timer</span>
+      </button>
+
+      <button data-tab="calendar" onclick="switchTab('calendar')" class="dock-tab relative z-10 flex flex-col items-center justify-center w-24 sm:w-28 py-2 rounded-[20px] transition-colors text-ink-secondary hover:text-ink-primary">
+        <svg class="w-4 h-4 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="3"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+        <span class="text-[11px] font-semibold tracking-tight">Calendar</span>
+      </button>
+
+      <button data-tab="insights" onclick="switchTab('insights')" class="dock-tab relative z-10 flex flex-col items-center justify-center w-24 sm:w-28 py-2 rounded-[20px] transition-colors text-ink-secondary hover:text-ink-primary">
+        <svg class="w-4 h-4 mb-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <span class="text-[11px] font-semibold tracking-tight">Insights</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: LOG STUDY SESSION SHEET                            -->
+  <!-- ========================================================= -->
+  <div id="logSessionModal" class="modal-backdrop fixed inset-0 z-50 bg-plum-950/35 flex items-center justify-center p-4">
+    <div class="modal-sheet bg-white border border-hairline rounded-[28px] max-w-md w-full p-6 sm:p-7 shadow-2xl">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-terracotta-500">STUDY LOG</span>
+          <h3 class="font-display text-xl font-bold text-ink-primary mt-0.5">Log a focus session</h3>
+        </div>
+        <button onclick="closeLogModal()" aria-label="Close modal" class="apple-btn w-8 h-8 rounded-full bg-ivory flex items-center justify-center text-ink-secondary hover:text-ink-primary">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="logSessionForm" onsubmit="handleLogSessionSubmit(event)" class="space-y-4">
+        <!-- Subject -->
+        <div>
+          <label class="block text-xs font-semibold text-ink-secondary mb-1.5">Subject</label>
+          <select id="modalSubjectSelect" class="w-full bg-ivory/70 border border-hairline rounded-2xl px-3.5 py-2.5 text-sm font-medium text-ink-primary focus:outline-none focus:border-plum-800">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <!-- Date -->
+        <div>
+          <label class="block text-xs font-semibold text-ink-secondary mb-1.5">Date</label>
+          <input id="modalDateInput" type="date" required class="w-full bg-ivory/70 border border-hairline rounded-2xl px-3.5 py-2.5 text-sm font-medium text-ink-primary tabular-nums focus:outline-none focus:border-plum-800" />
+        </div>
+
+        <!-- Duration Quick Pills + Custom Input -->
+        <div>
+          <label class="block text-xs font-semibold text-ink-secondary mb-1.5">Duration (minutes)</label>
+          <div class="grid grid-cols-5 gap-1.5 mb-2">
+            <button type="button" onclick="setModalMinutes(15)" class="apple-btn py-1.5 rounded-xl bg-ivory hover:bg-hairline text-xs font-semibold text-ink-primary tabular-nums">15m</button>
+            <button type="button" onclick="setModalMinutes(25)" class="apple-btn py-1.5 rounded-xl bg-ivory hover:bg-hairline text-xs font-semibold text-ink-primary tabular-nums">25m</button>
+            <button type="button" onclick="setModalMinutes(45)" class="apple-btn py-1.5 rounded-xl bg-ivory hover:bg-hairline text-xs font-semibold text-ink-primary tabular-nums">45m</button>
+            <button type="button" onclick="setModalMinutes(60)" class="apple-btn py-1.5 rounded-xl bg-ivory hover:bg-hairline text-xs font-semibold text-ink-primary tabular-nums">60m</button>
+            <button type="button" onclick="setModalMinutes(90)" class="apple-btn py-1.5 rounded-xl bg-ivory hover:bg-hairline text-xs font-semibold text-ink-primary tabular-nums">90m</button>
+          </div>
+          <input id="modalMinutesInput" type="number" min="1" max="600" value="25" required class="w-full bg-ivory/70 border border-hairline rounded-2xl px-3.5 py-2.5 text-sm font-bold text-ink-primary tabular-nums focus:outline-none focus:border-plum-800" />
+        </div>
+
+        <!-- Optional Note -->
+        <div>
+          <label class="block text-xs font-semibold text-ink-secondary mb-1.5">Focus note (optional)</label>
+          <input id="modalNoteInput" type="text" placeholder="e.g., Dynamic programming & graph traversal" maxlength="80" class="w-full bg-ivory/70 border border-hairline rounded-2xl px-3.5 py-2.5 text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:border-plum-800" />
+        </div>
+
+        <div class="pt-2 flex items-center gap-2.5">
+          <button type="button" onclick="closeLogModal()" class="apple-btn flex-1 py-3 rounded-full bg-ivory text-xs sm:text-sm font-semibold text-ink-secondary hover:text-ink-primary">
+            Cancel
+          </button>
+          <button type="submit" class="apple-btn flex-1 py-3 rounded-full bg-plum-900 hover:bg-plum-800 text-white text-xs sm:text-sm font-semibold shadow-md">
+            Save session
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL: ADD NEW SUBJECT SHEET                              -->
+  <!-- ========================================================= -->
+  <div id="newSubjectModal" class="modal-backdrop fixed inset-0 z-50 bg-plum-950/35 flex items-center justify-center p-4">
+    <div class="modal-sheet bg-white border border-hairline rounded-[28px] max-w-sm w-full p-6 shadow-2xl">
+      <h3 class="font-display text-lg font-bold text-ink-primary mb-1">Create new subject</h3>
+      <p class="text-xs text-ink-secondary mb-4">Add a study topic to track across your sessions.</p>
+      <form onsubmit="handleAddSubject(event)" class="space-y-4">
+        <input id="newSubjectNameInput" type="text" placeholder="e.g., Physics, Organic Chem, UI Design" maxlength="28" required class="w-full bg-ivory/70 border border-hairline rounded-2xl px-3.5 py-2.5 text-sm font-medium text-ink-primary focus:outline-none focus:border-plum-800" />
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeNewSubjectModal()" class="apple-btn flex-1 py-2.5 rounded-full bg-ivory text-xs font-semibold text-ink-secondary">Cancel</button>
+          <button type="submit" class="apple-btn flex-1 py-2.5 rounded-full bg-plum-900 text-white text-xs font-semibold">Add subject</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * FOCUS — POMODORO & STUDY STREAK APPLICATION STATE & ENGINE (CLEAN SLATE)
+     * ============================================================================
+     */
+
+    const STORAGE_KEY = 'focus_sessions_clean_v1';
+    const TODAY_ISO = '2026-11-22'; // Anchored to current real-world date: Sunday, Nov 22, 2026
+
+    const SUBJECT_PALETTE = [
+      '#769A82', // Sage
+      '#9B87A8', // Lavender
+      '#D87A68', // Coral
+      '#D4A359', // Amber
+      '#7B9EB8', // Sky
+      '#332642', // Twilight Plum
+      '#A85D6E', // Berry Clay
+    ];
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Clean initial state starting completely from ZERO (0 streak, 0h 0m studied, 0 sessions)
+    function createInitialCleanState() {
+      return {
+        subjects: [
+          { name: 'Mathematics', color: '#769A82' },
+          { name: 'Computer Science', color: '#9B87A8' },
+          { name: 'Literature', color: '#D87A68' },
+          { name: 'Languages', color: '#D4A359' },
+          { name: 'Creative', color: '#7B9EB8' }
+        ],
+        activeSubject: 'Mathematics',
+        dailyGoalMinutes: 120,
+        durations: {
+          focus: 25,
+          short: 5,
+          long: 15
+        },
+        soundEnabled: true,
+        sessions: []
+      };
+    }
+
+    // Load or initialize clean state safely
+    let appState = (() => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.sessions) && Array.isArray(parsed.subjects)) {
+            return parsed;
+          }
+        }
+      } catch (err) {
+        console.warn('Could not read localStorage, initializing clean state.', err);
+      }
+      const clean = createInitialCleanState();
+      saveStateToStorage(clean);
+      return clean;
+    })();
+
+    function saveStateToStorage(stateObj = appState) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(stateObj));
+      } catch (err) {
+        console.warn('Could not save state to localStorage.', err);
+      }
+    }
+
+    // UI & Timer Runtime Variables
+    let activeTab = 'timer';
+    let viewYear = 2026;
+    let viewMonth = 10; // 0-indexed: 10 = November
+    let selectedDateISO = TODAY_ISO;
+
+    let timerMode = 'focus'; // 'focus' | 'short' | 'long'
+    let totalSeconds = appState.durations.focus * 60;
+    let remainingSeconds = totalSeconds;
+    let isTimerRunning = false;
+    let timerInterval = null;
+
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 60; // r = 60 => ~376.99
+
+    /**
+     * ============================================================================
+     * WEB AUDIO API HARMONIC CHIME (APPLE-STYLE GENTLE GLASS BELL)
+     * ============================================================================
+     */
+    function playHarmonicChime(type = 'complete') {
+      if (!appState.soundEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const now = ctx.currentTime;
+
+        const notes = type === 'complete'
+          ? [523.25, 659.25, 783.99, 1046.50] // C5, E5, G5, C6 warm major chord
+          : [659.25, 880.00]; // Subtle soft tap chime
+
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+
+          gain.gain.setValueAtTime(0.0001, now + idx * 0.11);
+          gain.gain.exponentialRampToValueAtTime(0.11, now + idx * 0.11 + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.11 + 1.4);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(now + idx * 0.11);
+          osc.stop(now + idx * 0.11 + 1.45);
+        });
+      } catch (e) {
+        // Silently ignore if browser blocks audio before interaction
+      }
+    }
+
+    /**
+     * ============================================================================
+     * FORMATTING & DATE UTILITIES
+     * ============================================================================
+     */
+    function formatMinutesHuman(mins) {
+      const m = Math.round(mins);
+      if (m < 60) return `${m}m`;
+      const h = Math.floor(m / 60);
+      const rem = m % 60;
+      return rem === 0 ? `${h}h 00m` : `${h}h ${String(rem).padStart(2, '0')}m`;
+    }
+
+    function formatHoursAndMinutes(mins) {
+      const m = Math.round(mins);
+      const h = Math.floor(m / 60);
+      const rem = m % 60;
+      return `${h}h ${rem}m`;
+    }
+
+    function toISODate(year, monthZeroIndexed, day) {
+      return `${year}-${String(monthZeroIndexed + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+
+    function parseISODate(iso) {
+      const [y, m, d] = iso.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function formatReadableDate(iso) {
+      const d = parseISODate(iso);
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      return `${days[d.getDay()]}, ${SHORT_MONTHS[d.getMonth()]} ${d.getDate()}`;
+    }
+
+    function getSubjectColor(subjectName) {
+      const found = appState.subjects.find(s => s.name === subjectName);
+      return found ? found.color : '#332642';
+    }
+
+    /**
+     * ============================================================================
+     * STREAK & ANALYTICS CALCULATIONS
+     * ============================================================================
+     */
+    function getDailyMinutesMap() {
+      const map = {};
+      appState.sessions.forEach(s => {
+        map[s.date] = (map[s.date] || 0) + Number(s.minutes || 0);
+      });
+      return map;
+    }
+
+    function calculateStreaks() {
+      const dailyMap = getDailyMinutesMap();
+      const activeDates = Object.keys(dailyMap).filter(d => dailyMap[d] > 0).sort();
+      if (activeDates.length === 0) return { current: 0, best: 0 };
+
+      // Calculate longest streak across all logged dates
+      let best = 1;
+      let run = 1;
+      for (let i = 1; i < activeDates.length; i++) {
+        const prev = parseISODate(activeDates[i - 1]);
+        const curr = parseISODate(activeDates[i]);
+        const diffDays = Math.round((curr - prev) / (1000 * 60 * 60 * 24));
+        if (diffDays === 1) {
+          run++;
+          if (run > best) best = run;
+        } else if (diffDays > 1) {
+          run = 1;
+        }
+      }
+
+      // Calculate active streak ending at TODAY_ISO (or yesterday if today hasn't been logged yet)
+      let current = 0;
+      let cursor = parseISODate(TODAY_ISO);
+      const todayKey = TODAY_ISO;
+      if (!dailyMap[todayKey] || dailyMap[todayKey] <= 0) {
+        cursor.setDate(cursor.getDate() - 1);
+      }
+
+      while (true) {
+        const key = toISODate(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+        if (dailyMap[key] && dailyMap[key] > 0) {
+          current++;
+          cursor.setDate(cursor.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+
+      return { current, best: Math.max(best, current) };
+    }
+
+    /**
+     * ============================================================================
+     * TIMER ENGINE & CONTROLS
+     * ============================================================================
+     */
+    function setTimerMode(mode, skipChime = false) {
+      pauseTimer();
+      timerMode = mode;
+      totalSeconds = (appState.durations[mode] || 25) * 60;
+      remainingSeconds = totalSeconds;
+
+      // Update sliding segmented pill geometry
+      const container = document.getElementById('modeSegmentedControl');
+      const pill = document.getElementById('modeActivePill');
+      const tabs = container.querySelectorAll('.mode-tab');
+
+      tabs.forEach(tab => {
+        const isSelected = tab.dataset.mode === mode;
+        tab.classList.toggle('text-plum-950', isSelected);
+        tab.classList.toggle('text-white/80', !isSelected);
+        if (isSelected) {
+          pill.style.width = `${tab.offsetWidth}px`;
+          pill.style.transform = `translateX(${tab.offsetLeft - 4}px)`;
+        }
+      });
+
+      // Update labels & ring color
+      const ring = document.getElementById('timerProgressCircle');
+      const eyebrow = document.getElementById('timerEyebrowLabel');
+      const mini = document.getElementById('ringModeMini');
+      const caption = document.getElementById('timerCaption');
+      const btnText = document.getElementById('primaryTimerBtnText');
+
+      mini.textContent = `${appState.durations[mode]} min`;
+
+      if (mode === 'focus') {
+        ring.style.stroke = '#F4B594';
+        eyebrow.textContent = 'POMODORO FOCUS • READY';
+        btnText.textContent = 'Start Focus';
+        caption.innerHTML = `<span>Studying</span> <span class="px-2 py-0.5 rounded-full bg-white/12 text-white text-xs font-medium" id="heroSubjectBadge">${escapeHtml(appState.activeSubject)}</span>`;
+      } else if (mode === 'short') {
+        ring.style.stroke = '#9AD0B3';
+        eyebrow.textContent = 'SHORT BREAK • RECHARGE';
+        btnText.textContent = 'Start Break';
+        caption.innerHTML = `<span>Step away, breathe & stretch</span>`;
+      } else {
+        ring.style.stroke = '#B8C4F2';
+        eyebrow.textContent = 'LONG BREAK • DEEP REST';
+        btnText.textContent = 'Start Rest';
+        caption.innerHTML = `<span>Take a restorative 15-minute pause</span>`;
+      }
+
+      if (!skipChime) playHarmonicChime('tap');
+      renderTimerDisplay();
+    }
+
+    function toggleTimer() {
+      if (isTimerRunning) {
+        pauseTimer();
+      } else {
+        startTimer();
+      }
+    }
+
+    function startTimer() {
+      if (isTimerRunning) return;
+      isTimerRunning = true;
+
+      document.getElementById('heroTimerCard').classList.add('is-running');
+      document.getElementById('playIcon').classList.add('hidden');
+      document.getElementById('pauseIcon').classList.remove('hidden');
+      document.getElementById('primaryTimerBtnText').textContent = 'Pause';
+      document.getElementById('timerEyebrowLabel').textContent =
+        timerMode === 'focus' ? 'DEEP FOCUS • IN FLOW' : 'REST PERIOD • ACTIVE';
+
+      timerInterval = setInterval(() => {
+        if (remainingSeconds > 0) {
+          remainingSeconds--;
+          renderTimerDisplay();
+        } else {
+          handleTimerCompleted();
+        }
+      }, 1000);
+    }
+
+    function pauseTimer() {
+      isTimerRunning = false;
+      clearInterval(timerInterval);
+      timerInterval = null;
+
+      document.getElementById('heroTimerCard').classList.remove('is-running');
+      document.getElementById('playIcon').classList.remove('hidden');
+      document.getElementById('pauseIcon').classList.add('hidden');
+      document.getElementById('primaryTimerBtnText').textContent =
+        timerMode === 'focus' ? 'Resume Focus' : 'Resume Break';
+      document.getElementById('timerEyebrowLabel').textContent = 'PAUSED';
+    }
+
+    function resetTimer() {
+      pauseTimer();
+      remainingSeconds = totalSeconds;
+      document.getElementById('primaryTimerBtnText').textContent =
+        timerMode === 'focus' ? 'Start Focus' : 'Start Break';
+      document.getElementById('timerEyebrowLabel').textContent =
+        timerMode === 'focus' ? 'POMODORO FOCUS • READY' : 'BREAK • READY';
+      renderTimerDisplay();
+    }
+
+    function handleTimerCompleted() {
+      pauseTimer();
+      playHarmonicChime('complete');
+
+      if (timerMode === 'focus') {
+        const loggedMins = appState.durations.focus;
+        addStudySession({
+          date: TODAY_ISO,
+          subject: appState.activeSubject,
+          minutes: loggedMins,
+          note: 'Completed Pomodoro focus cycle'
+        });
+        showToast(`Completed ${loggedMins}m of ${appState.activeSubject}! Streak updated.`);
+        setTimerMode('short', true);
+      } else {
+        showToast('Break complete! Ready for your next focus session.');
+        setTimerMode('focus', true);
+      }
+    }
+
+    function completeSessionEarly() {
+      if (timerMode !== 'focus') {
+        setTimerMode('focus');
+        return;
+      }
+      const elapsedSeconds = totalSeconds - remainingSeconds;
+      const minsToLog = elapsedSeconds >= 60
+        ? Math.round(elapsedSeconds / 60)
+        : appState.durations.focus;
+
+      pauseTimer();
+      playHarmonicChime('complete');
+      addStudySession({
+        date: TODAY_ISO,
+        subject: appState.activeSubject,
+        minutes: minsToLog,
+        note: 'Focus session completed'
+      });
+      showToast(`Logged ${minsToLog}m of ${appState.activeSubject} to today!`);
+      resetTimer();
+    }
+
+    function renderTimerDisplay() {
+      const mins = Math.floor(remainingSeconds / 60);
+      const secs = remainingSeconds % 60;
+      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      document.getElementById('timerDisplay').textContent = formatted;
+      document.title = isTimerRunning ? `${formatted} — Focus` : 'Focus — Pomodoro Timer & Study Rhythm';
+
+      const ratio = totalSeconds > 0 ? remainingSeconds / totalSeconds : 0;
+      const offset = RING_CIRCUMFERENCE * (1 - ratio);
+      document.getElementById('timerProgressCircle').style.strokeDashoffset = offset.toFixed(2);
+      document.getElementById('ringPercentText').textContent = `${Math.round(ratio * 100)}%`;
+    }
+
+    /**
+     * ============================================================================
+     * DATA MUTATIONS (SESSIONS, SUBJECTS, SETTINGS)
+     * ============================================================================
+     */
+    function addStudySession({ date, subject, minutes, note }) {
+      const newSession = {
+        id: 's-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        date,
+        subject,
+        minutes: Math.max(1, Math.round(Number(minutes))),
+        note: note ? note.trim() : ''
+      };
+      appState.sessions.unshift(newSession);
+      saveStateToStorage();
+      selectedDateISO = date;
+      const parsed = parseISODate(date);
+      viewYear = parsed.getFullYear();
+      viewMonth = parsed.getMonth();
+      renderAll();
+    }
+
+    function deleteStudySession(id) {
+      appState.sessions = appState.sessions.filter(s => s.id !== id);
+      saveStateToStorage();
+      renderAll();
+      showToast('Session removed from log');
+    }
+
+    function selectActiveSubject(name) {
+      appState.activeSubject = name;
+      saveStateToStorage();
+      toggleSubjectMenu(false);
+      renderSubjectUI();
+    }
+
+    function handleAddSubject(e) {
+      e.preventDefault();
+      const input = document.getElementById('newSubjectNameInput');
+      const name = input.value.trim();
+      if (!name) return;
+
+      const exists = appState.subjects.find(s => s.name.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        appState.activeSubject = exists.name;
+      } else {
+        const nextColor = SUBJECT_PALETTE[appState.subjects.length % SUBJECT_PALETTE.length];
+        appState.subjects.push({ name, color: nextColor });
+        appState.activeSubject = name;
+      }
+      saveStateToStorage();
+      input.value = '';
+      closeNewSubjectModal();
+      renderAll();
+      showToast(`Subject "${name}" selected`);
+    }
+
+    function updateDailyGoal(val) {
+      appState.dailyGoalMinutes = Number(val);
+      saveStateToStorage();
+      renderAll();
+    }
+
+    function updateDurations() {
+      const f = Math.max(1, Math.min(120, Number(document.getElementById('focusDurationInput').value) || 25));
+      const s = Math.max(1, Math.min(45, Number(document.getElementById('shortDurationInput').value) || 5));
+      const l = Math.max(1, Math.min(60, Number(document.getElementById('longDurationInput').value) || 15));
+
+      appState.durations = { focus: f, short: s, long: l };
+      saveStateToStorage();
+      setTimerMode(timerMode, true);
+      showToast('Timer intervals updated');
+    }
+
+    function showResetConfirm() {
+      const group = document.getElementById('resetConfirmGroup');
+      group.innerHTML = `
+        <div class="flex items-center gap-1.5">
+          <button onclick="executeResetData()" class="apple-btn text-xs font-semibold bg-terracotta-500 text-white px-3 py-1.5 rounded-full">Confirm reset?</button>
+          <button onclick="cancelResetConfirm()" class="apple-btn text-xs font-semibold bg-ivory text-ink-secondary px-2.5 py-1.5 rounded-full">Cancel</button>
+        </div>
+      `;
+    }
+
+    function cancelResetConfirm() {
+      const group = document.getElementById('resetConfirmGroup');
+      if (group) {
+        group.innerHTML = `
+          <button onclick="showResetConfirm()" class="apple-btn text-xs font-semibold text-ink-secondary hover:text-ink-primary px-3 py-1.5 rounded-full bg-ivory">
+            Reset data
+          </button>
+        `;
+      }
+    }
+
+    let headerResetPending = false;
+    let headerResetTimer = null;
+    function handleHeaderResetClick() {
+      const btn = document.getElementById('headerResetBtn');
+      if (!headerResetPending) {
+        headerResetPending = true;
+        btn.innerHTML = `<span class="text-terracotta-500 font-semibold">Confirm reset?</span>`;
+        btn.classList.add('border-terracotta-300', 'bg-terracotta-50');
+        clearTimeout(headerResetTimer);
+        headerResetTimer = setTimeout(() => {
+          resetHeaderBtnState();
+        }, 4000);
+      } else {
+        resetHeaderBtnState();
+        executeResetData();
+      }
+    }
+
+    function resetHeaderBtnState() {
+      headerResetPending = false;
+      clearTimeout(headerResetTimer);
+      const btn = document.getElementById('headerResetBtn');
+      if (btn) {
+        btn.innerHTML = `<span>Reset data</span>`;
+        btn.classList.remove('border-terracotta-300', 'bg-terracotta-50');
+      }
+    }
+
+    function executeResetData() {
+      appState = createInitialCleanState();
+      saveStateToStorage();
+      viewYear = 2026;
+      viewMonth = 10;
+      selectedDateISO = TODAY_ISO;
+      cancelResetConfirm();
+      resetHeaderBtnState();
+      setTimerMode('focus', true);
+      renderAll();
+      showToast('All study data reset to 0');
+    }
+
+    /**
+     * ============================================================================
+     * NAVIGATION, MODALS & UI INTERACTIONS
+     * ============================================================================
+     */
+    function switchTab(tabName) {
+      activeTab = tabName;
+
+      // Toggle visible sections
+      ['timer', 'calendar', 'insights'].forEach(name => {
+        const el = document.getElementById(`view-${name}`);
+        if (name === tabName) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      // Slide dock active pill smoothly
+      const dock = document.getElementById('bottomDock');
+      const indicator = document.getElementById('dockActiveIndicator');
+      const buttons = dock.querySelectorAll('.dock-tab');
+
+      buttons.forEach(btn => {
+        const isCurrent = btn.dataset.tab === tabName;
+        btn.classList.toggle('text-white', isCurrent);
+        btn.classList.toggle('text-ink-secondary', !isCurrent);
+        if (isCurrent) {
+          indicator.style.width = `${btn.offsetWidth}px`;
+          indicator.style.transform = `translateX(${btn.offsetLeft - 6}px)`;
+        }
+      });
+
+      renderAll();
+    }
+
+    function changeMonth(delta) {
+      viewMonth += delta;
+      if (viewMonth > 11) {
+        viewMonth = 0;
+        viewYear++;
+      } else if (viewMonth < 0) {
+        viewMonth = 11;
+        viewYear--;
+      }
+      renderAll();
+    }
+
+    function jumpToToday() {
+      viewYear = 2026;
+      viewMonth = 10;
+      selectedDateISO = TODAY_ISO;
+      renderAll();
+    }
+
+    function selectCalendarDate(iso) {
+      selectedDateISO = iso;
+      renderAll();
+    }
+
+    function toggleSubjectMenu(forceState) {
+      const menu = document.getElementById('subjectDropdownMenu');
+      const shouldShow = typeof forceState === 'boolean' ? forceState : menu.classList.contains('hidden');
+      menu.classList.toggle('hidden', !shouldShow);
+    }
+
+    function openLogModal(defaultDate = TODAY_ISO) {
+      const modal = document.getElementById('logSessionModal');
+      const select = document.getElementById('modalSubjectSelect');
+      select.innerHTML = appState.subjects
+        .map(s => `<option value="${escapeHtml(s.name)}" ${s.name === appState.activeSubject ? 'selected' : ''}>${escapeHtml(s.name)}</option>`)
+        .join('');
+
+      document.getElementById('modalDateInput').value = defaultDate;
+      document.getElementById('modalMinutesInput').value = appState.durations.focus;
+      document.getElementById('modalNoteInput').value = '';
+      modal.classList.add('open');
+    }
+
+    function openLogModalForSelectedDate() {
+      openLogModal(selectedDateISO || TODAY_ISO);
+    }
+
+    function closeLogModal() {
+      document.getElementById('logSessionModal').classList.remove('open');
+    }
+
+    function setModalMinutes(mins) {
+      document.getElementById('modalMinutesInput').value = mins;
+    }
+
+    function handleLogSessionSubmit(e) {
+      e.preventDefault();
+      const subject = document.getElementById('modalSubjectSelect').value;
+      const date = document.getElementById('modalDateInput').value || TODAY_ISO;
+      const minutes = Number(document.getElementById('modalMinutesInput').value);
+      const note = document.getElementById('modalNoteInput').value;
+
+      if (!minutes || minutes <= 0) return;
+
+      addStudySession({ date, subject, minutes, note });
+      closeLogModal();
+      playHarmonicChime('tap');
+      showToast(`Logged ${formatMinutesHuman(minutes)} of ${subject}`);
+    }
+
+    function openNewSubjectPrompt() {
+      toggleSubjectMenu(false);
+      document.getElementById('newSubjectModal').classList.add('open');
+      setTimeout(() => document.getElementById('newSubjectNameInput').focus(), 120);
+    }
+
+    function closeNewSubjectModal() {
+      document.getElementById('newSubjectModal').classList.remove('open');
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const pill = document.getElementById('toastPill');
+      document.getElementById('toastMessage').textContent = msg;
+      pill.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        pill.classList.remove('show');
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /**
+     * ============================================================================
+     * MASTER RENDER FUNCTIONS
+     * ============================================================================
+     */
+    function renderSubjectUI() {
+      const color = getSubjectColor(appState.activeSubject);
+      document.getElementById('activeSubjectDot').style.backgroundColor = color;
+      document.getElementById('activeSubjectLabel').textContent = appState.activeSubject;
+      const heroBadge = document.getElementById('heroSubjectBadge');
+      if (heroBadge) heroBadge.textContent = appState.activeSubject;
+
+      const list = document.getElementById('subjectOptionsList');
+      list.innerHTML = appState.subjects.map(subj => {
+        const isCurrent = subj.name === appState.activeSubject;
+        return `
+          <button onclick="selectActiveSubject('${escapeHtml(subj.name)}')" class="w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${isCurrent ? 'bg-ivory text-ink-primary font-semibold' : 'text-ink-secondary hover:bg-ivory/60 hover:text-ink-primary'}">
+            <span class="flex items-center gap-2.5">
+              <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${subj.color}"></span>
+              <span>${escapeHtml(subj.name)}</span>
+            </span>
+            ${isCurrent ? '<span class="text-terracotta-500">✓</span>' : ''}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderMetricsAndHeroPills() {
+      const dailyMap = getDailyMinutesMap();
+      const streaks = calculateStreaks();
+
+      const todaySessions = appState.sessions.filter(s => s.date === TODAY_ISO);
+      const todayMinutes = dailyMap[TODAY_ISO] || 0;
+      const goalMinutes = appState.dailyGoalMinutes || 120;
+      const goalPct = Math.min(100, Math.round((todayMinutes / goalMinutes) * 100));
+
+      // Month calculations for viewYear / viewMonth
+      const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+      const monthSessions = appState.sessions.filter(s => s.date.startsWith(monthPrefix));
+      const monthTotalMins = monthSessions.reduce((acc, s) => acc + s.minutes, 0);
+      const activeDaysInMonth = new Set(monthSessions.filter(s => s.minutes > 0).map(s => s.date)).size;
+
+      // Header labels
+      document.getElementById('headerMonthLabel').textContent = `${SHORT_MONTHS[viewMonth]} ${viewYear}`;
+      document.getElementById('headerStreakText').textContent = `${streaks.current}d streak`;
+      document.getElementById('editorialSubtitle').textContent =
+        `A clearer picture of ${MONTH_NAMES[viewMonth]} ${viewYear}. Every deep session counts.`;
+
+      // Hero frosted pills
+      document.getElementById('heroTodayPill').textContent = `${formatMinutesHuman(todayMinutes)} studied today`;
+      document.getElementById('heroSessionsPill').textContent =
+        `${todaySessions.length} focus ${todaySessions.length === 1 ? 'session' : 'sessions'} logged`;
+
+      // Bento 3-Card Strip
+      document.getElementById('metricStreakValue').textContent = `${streaks.current} ${streaks.current === 1 ? 'Day' : 'Days'}`;
+      document.getElementById('metricStreakSub').textContent =
+        streaks.best > 0 ? `Personal best: ${streaks.best} ${streaks.best === 1 ? 'day' : 'days'}` : 'Ready to start';
+
+      document.getElementById('metricTodayValue').textContent = formatMinutesHuman(todayMinutes);
+      document.getElementById('metricGoalPercent').textContent = `${goalPct}%`;
+      document.getElementById('metricGoalBar').style.width = `${goalPct}%`;
+      document.getElementById('metricGoalSub').textContent = `Of ${formatMinutesHuman(goalMinutes)} daily goal`;
+
+      document.getElementById('metricMonthTitle').textContent = `${MONTH_NAMES[viewMonth]} total`;
+      document.getElementById('metricMonthValue').textContent = formatHoursAndMinutes(monthTotalMins);
+      document.getElementById('metricMonthSub').textContent =
+        `${activeDaysInMonth} active study ${activeDaysInMonth === 1 ? 'day' : 'days'} • ${monthSessions.length} ${monthSessions.length === 1 ? 'session' : 'sessions'}`;
+
+      // Expanded Calendar View KPIs
+      document.getElementById('calViewStreak').textContent = `${streaks.current} ${streaks.current === 1 ? 'Day' : 'Days'}`;
+      document.getElementById('calViewBest').textContent = `${streaks.best} ${streaks.best === 1 ? 'Day' : 'Days'}`;
+      document.getElementById('calViewActiveDays').textContent = `${activeDaysInMonth} ${activeDaysInMonth === 1 ? 'Day' : 'Days'}`;
+      const avgMins = activeDaysInMonth > 0 ? Math.round(monthTotalMins / activeDaysInMonth) : 0;
+      document.getElementById('calViewDailyAvg').textContent = formatMinutesHuman(avgMins);
+    }
+
+    function buildCalendarCellsHTML(dailyMap, compact = true) {
+      const firstDayWeekday = new Date(viewYear, viewMonth, 1).getDay();
+      const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      let html = '';
+
+      // Leading empty cells
+      for (let i = 0; i < firstDayWeekday; i++) {
+        html += `<div class="${compact ? 'h-11 sm:h-12' : 'h-14 sm:h-16'} rounded-2xl"></div>`;
+      }
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const iso = toISODate(viewYear, viewMonth, day);
+        const mins = dailyMap[iso] || 0;
+        const isToday = iso === TODAY_ISO;
+        const isSelected = iso === selectedDateISO;
+
+        // Graded sage-green and warm coral intensity levels starting from neutral 0m
+        let bgClass = 'bg-ivory/65 text-ink-secondary hover:bg-ivory';
+        let subLabel = '';
+
+        if (mins >= 120) {
+          bgClass = 'bg-[#C47564] text-white font-semibold shadow-xs';
+          subLabel = formatMinutesHuman(mins);
+        } else if (mins >= 60) {
+          bgClass = 'bg-[#D87A68]/35 text-ink-primary font-semibold';
+          subLabel = formatMinutesHuman(mins);
+        } else if (mins >= 30) {
+          bgClass = 'bg-[#769A82]/35 text-ink-primary font-semibold';
+          subLabel = `${mins}m`;
+        } else if (mins > 0) {
+          bgClass = 'bg-[#EBF3EE] text-ink-primary font-medium';
+          subLabel = `${mins}m`;
+        }
+
+        const ringClass = isSelected
+          ? 'ring-2 ring-terracotta-500 ring-offset-2 ring-offset-white'
+          : isToday
+            ? 'today-ring'
+            : '';
+
+        html += `
+          <button onclick="selectCalendarDate('${iso}')" class="cal-day-cell ${compact ? 'h-11 sm:h-12' : 'h-14 sm:h-16'} rounded-2xl flex flex-col items-center justify-center relative ${bgClass} ${ringClass}">
+            <span class="text-xs sm:text-sm font-semibold tabular-nums leading-none">${day}</span>
+            ${subLabel ? `<span class="text-[9px] sm:text-[10px] mt-1 opacity-85 tabular-nums leading-none">${subLabel}</span>` : ''}
+          </button>
+        `;
+      }
+
+      return html;
+    }
+
+    function renderCalendarsAndDayInspector() {
+      const dailyMap = getDailyMinutesMap();
+
+      // Render both Dashboard mini-calendar and Expanded Calendar view
+      document.getElementById('dashboardCalendarGrid').innerHTML = buildCalendarCellsHTML(dailyMap, true);
+      document.getElementById('expandedCalendarGrid').innerHTML = buildCalendarCellsHTML(dailyMap, false);
+      document.getElementById('expandedCalMonthTitle').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+
+      // Selected day sessions
+      const daySessions = appState.sessions.filter(s => s.date === selectedDateISO);
+      const dayMins = daySessions.reduce((sum, s) => sum + s.minutes, 0);
+
+      // Update Dashboard Day Inspector Drawer
+      document.getElementById('inspectorDateTitle').textContent = formatReadableDate(selectedDateISO);
+      const badge = document.getElementById('inspectorBadge');
+      if (dayMins > 0) {
+        badge.textContent = formatMinutesHuman(dayMins);
+        badge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-terracotta-100 text-terracotta-500 tabular-nums';
+        const breakdownStr = daySessions.map(s => `${s.subject} (${s.minutes}m)`).join(', ');
+        document.getElementById('inspectorSessionsSummary').textContent = breakdownStr;
+      } else {
+        badge.textContent = '0m';
+        badge.className = 'text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-ivory text-ink-muted tabular-nums';
+        document.getElementById('inspectorSessionsSummary').textContent = 'No sessions logged yet';
+      }
+
+      // Update Expanded Calendar Timeline Panel
+      document.getElementById('timelineDateHeading').textContent = `${formatReadableDate(selectedDateISO)}, ${selectedDateISO.slice(0, 4)}`;
+      document.getElementById('timelineTotalBadge').textContent = formatMinutesHuman(dayMins);
+
+      const timelineList = document.getElementById('timelineSessionsList');
+      if (daySessions.length === 0) {
+        timelineList.innerHTML = `
+          <div class="py-10 text-center bg-ivory/50 rounded-2xl border border-dashed border-hairline px-4">
+            <p class="text-sm font-medium text-ink-secondary">No sessions logged yet</p>
+            <p class="text-xs text-ink-muted mt-1">Start a timer or click below to log a session for this day.</p>
+          </div>
+        `;
+      } else {
+        timelineList.innerHTML = daySessions.map(s => `
+          <div class="p-3.5 rounded-2xl bg-ivory/65 border border-hairline flex items-start justify-between gap-3">
+            <div class="flex items-start gap-3">
+              <span class="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0" style="background-color: ${getSubjectColor(s.subject)}"></span>
+              <div>
+                <div class="text-sm font-semibold text-ink-primary">${escapeHtml(s.subject)}</div>
+                ${s.note ? `<p class="text-xs text-ink-secondary mt-0.5">${escapeHtml(s.note)}</p>` : ''}
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs font-bold text-ink-primary bg-white px-2.5 py-1 rounded-full border border-hairline tabular-nums">${formatMinutesHuman(s.minutes)}</span>
+              <button onclick="deleteStudySession('${s.id}')" title="Delete session" class="text-ink-muted hover:text-terracotta-500 p-1 transition-colors">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function renderSubjectDonutBreakdown() {
+      const monthPrefix = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
+      const monthSessions = appState.sessions.filter(s => s.date.startsWith(monthPrefix));
+      const totalMins = monthSessions.reduce((acc, s) => acc + s.minutes, 0);
+
+      // Aggregate by subject across all configured subjects so 0m subjects are visible at 0%
+      const totalsBySubj = {};
+      appState.subjects.forEach(s => {
+        totalsBySubj[s.name] = 0;
+      });
+      monthSessions.forEach(s => {
+        totalsBySubj[s.subject] = (totalsBySubj[s.subject] || 0) + s.minutes;
+      });
+
+      const entries = Object.entries(totalsBySubj)
+        .map(([name, mins]) => ({
+          name,
+          mins,
+          color: getSubjectColor(name),
+          pct: totalMins > 0 ? Math.round((mins / totalMins) * 100) : 0
+        }))
+        .sort((a, b) => b.mins - a.mins);
+
+      document.getElementById('subjectCountPill').textContent =
+        `${entries.length} ${entries.length === 1 ? 'subject' : 'subjects'}`;
+
+      const centerValEl = document.getElementById('donutCenterValue');
+      const centerSubEl = document.getElementById('donutCenterSub');
+      if (totalMins === 0) {
+        centerValEl.textContent = '0m';
+        if (centerSubEl) centerSubEl.textContent = 'No time logged';
+      } else {
+        centerValEl.textContent = formatHoursAndMinutes(totalMins);
+        if (centerSubEl) centerSubEl.textContent = 'this month';
+      }
+
+      const svg = document.getElementById('subjectDonutSvg');
+      const radius = 58;
+      const circumference = 2 * Math.PI * radius;
+
+      if (totalMins === 0) {
+        svg.innerHTML = `<circle cx="80" cy="80" r="${radius}" fill="none" stroke="#EFEAE4" stroke-width="20" />`;
+      } else {
+        let cumulativeOffset = 0;
+        const activeEntries = entries.filter(e => e.mins > 0);
+        svg.innerHTML = activeEntries.map(item => {
+          const fraction = item.mins / totalMins;
+          const dashLength = activeEntries.length === 1
+            ? circumference
+            : Math.max(0, fraction * circumference - 2.5);
+          const dashArray = `${dashLength} ${circumference}`;
+          const dashOffset = -cumulativeOffset;
+          cumulativeOffset += fraction * circumference;
+
+          return `
+            <circle class="donut-segment" cx="80" cy="80" r="${radius}" fill="none"
+              stroke="${item.color}" stroke-width="20"
+              stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}">
+              <title>${escapeHtml(item.name)}: ${formatMinutesHuman(item.mins)} (${item.pct}%)</title>
+            </circle>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('subjectBreakdownList').innerHTML = entries.map(item => `
+        <div class="flex items-center justify-between text-xs sm:text-sm">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${item.color}"></span>
+            <span class="font-medium text-ink-primary truncate">${escapeHtml(item.name)}</span>
+          </div>
+          <div class="flex items-center gap-3 shrink-0 tabular-nums">
+            <span class="text-xs text-ink-secondary">${formatMinutesHuman(item.mins)}</span>
+            <span class="font-bold text-ink-primary w-9 text-right">${item.pct}%</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderInsightsView() {
+      const dailyMap = getDailyMinutesMap();
+      const goalMins = appState.dailyGoalMinutes || 120;
+      const daysShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const last7 = [];
+      const base = parseISODate(TODAY_ISO);
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(base);
+        d.setDate(base.getDate() - i);
+        const iso = toISODate(d.getFullYear(), d.getMonth(), d.getDate());
+        last7.push({
+          iso,
+          label: daysShort[d.getDay()],
+          mins: dailyMap[iso] || 0,
+          isToday: iso === TODAY_ISO
+        });
+      }
+
+      const weeklySum = last7.reduce((acc, d) => acc + d.mins, 0);
+      document.getElementById('weeklyTotalBadge').textContent = `${formatHoursAndMinutes(weeklySum)} total`;
+      document.getElementById('weeklyGoalIndicator').textContent = `Goal: ${formatMinutesHuman(goalMins)}`;
+      document.getElementById('settingGoalLabel').textContent = `${formatMinutesHuman(goalMins)} (${goalMins}m)`;
+      document.getElementById('dailyGoalSlider').value = goalMins;
+      document.getElementById('focusDurationInput').value = appState.durations.focus;
+      document.getElementById('shortDurationInput').value = appState.durations.short;
+      document.getElementById('longDurationInput').value = appState.durations.long;
+
+      const maxVal = Math.max(goalMins * 1.15, ...last7.map(d => d.mins), 60);
+
+      document.getElementById('weeklyBarChart').innerHTML = last7.map(day => {
+        const heightPct = Math.max(6, Math.round((day.mins / maxVal) * 100));
+        const reachedGoal = day.mins >= goalMins;
+        const barColor = day.isToday
+          ? 'bg-gradient-to-t from-plum-900 to-terracotta-500'
+          : reachedGoal
+            ? 'bg-plum-800'
+            : 'bg-terracotta-300/75';
+
+        return `
+          <div class="flex flex-col items-center h-full justify-end group">
+            <span class="text-[10px] font-semibold text-ink-secondary mb-1.5 opacity-80 group-hover:opacity-100 tabular-nums">
+              ${day.mins > 0 ? formatMinutesHuman(day.mins) : '0m'}
+            </span>
+            <div class="w-full max-w-[38px] bg-ivory rounded-2xl h-32 flex items-end overflow-hidden p-0.5">
+              <div class="w-full rounded-xl transition-all duration-700 ${barColor}" style="height: ${heightPct}%"></div>
+            </div>
+            <span class="text-xs font-semibold mt-2 ${day.isToday ? 'text-terracotta-500' : 'text-ink-secondary'}">${day.label}</span>
+          </div>
+        `;
+      }).join('');
+
+      // Recent Sessions Table
+      document.getElementById('totalLogsCountBadge').textContent =
+        `${appState.sessions.length} ${appState.sessions.length === 1 ? 'session' : 'sessions'}`;
+      const tableEl = document.getElementById('recentSessionsTable');
+
+      if (appState.sessions.length === 0) {
+        tableEl.innerHTML = `
+          <div class="py-10 text-center">
+            <p class="text-sm font-medium text-ink-secondary">No sessions logged yet</p>
+            <p class="text-xs text-ink-muted mt-1">Start a focus timer or click <span class="font-semibold text-ink-primary">+ Log session</span> to record your first study block.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const recent = appState.sessions.slice(0, 12);
+      tableEl.innerHTML = recent.map(s => `
+        <div class="py-3.5 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="w-3 h-3 rounded-full shrink-0" style="background-color: ${getSubjectColor(s.subject)}"></span>
+            <div class="min-w-0">
+              <div class="text-sm font-semibold text-ink-primary truncate">${escapeHtml(s.subject)}</div>
+              <div class="text-xs text-ink-secondary truncate">
+                ${formatReadableDate(s.date)}${s.note ? ` • ${escapeHtml(s.note)}` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs font-bold text-ink-primary bg-ivory px-3 py-1 rounded-full tabular-nums">${formatMinutesHuman(s.minutes)}</span>
+            <button onclick="deleteStudySession('${s.id}')" title="Delete entry" class="text-ink-muted hover:text-terracotta-500 p-1.5 rounded-full hover:bg-terracotta-50 transition-colors">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m5 0V4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderSoundToggle() {
+      document.getElementById('soundOnIcon').classList.toggle('hidden', !appState.soundEnabled);
+      document.getElementById('soundOffIcon').classList.toggle('hidden', appState.soundEnabled);
+    }
+
+    function renderAll() {
+      renderSubjectUI();
+      renderMetricsAndHeroPills();
+      renderCalendarsAndDayInspector();
+      renderSubjectDonutBreakdown();
+      renderInsightsView();
+      renderSoundToggle();
+    }
+
+    /**
+     * ============================================================================
+     * EVENT LISTENERS & INITIAL BOOTSTRAP
+     * ============================================================================
+     */
+    document.getElementById('prevMonthBtn').addEventListener('click', () => changeMonth(-1));
+    document.getElementById('nextMonthBtn').addEventListener('click', () => changeMonth(1));
+
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      appState.soundEnabled = !appState.soundEnabled;
+      saveStateToStorage();
+      renderSoundToggle();
+      if (appState.soundEnabled) {
+        playHarmonicChime('tap');
+        showToast('Harmonic chimes enabled');
+      } else {
+        showToast('Sound muted');
+      }
+    });
+
+    // Close dropdown & modals when clicking outside
+    document.addEventListener('click', (e) => {
+      const btn = document.getElementById('subjectDropdownBtn');
+      const menu = document.getElementById('subjectDropdownMenu');
+      if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('logSessionModal').addEventListener('click', (e) => {
+      if (e.target.id === 'logSessionModal') closeLogModal();
+    });
+    document.getElementById('newSubjectModal').addEventListener('click', (e) => {
+      if (e.target.id === 'newSubjectModal') closeNewSubjectModal();
+    });
+
+    // Reposition sliding pills accurately on window resize
+    window.addEventListener('resize', () => {
+      setTimerMode(timerMode, true);
+      switchTab(activeTab);
+    });
+
+    // Initial hydration
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+      setTimerMode('focus', true);
+      switchTab('timer');
+    });
+  </script>
+</body>
+</html>
